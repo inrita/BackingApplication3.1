@@ -5,10 +5,16 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class Bank {
-    private String name;
+    private String bankName;
 
-    public Bank(String name) {
-        this.name = name;
+    public Bank() {} // สร้างไว้รับค่าเฉยๆ
+
+    public Bank(String bankName) {
+        this.bankName = bankName;
+    }
+
+    public String getBankName() {
+        return getBankName();
     }
 
     // จะแสดงข้อมูลทั้งหมด (account) ที่มี
@@ -21,7 +27,7 @@ public class Bank {
 
             while (result.next()) {
                 System.out.println(result.getString(1) + " " + result.getString(2) + " "
-                        + result.getString(3));
+                        + result.getString(3) + " " + result.getString(4));
             }
             System.out.println();
 
@@ -31,14 +37,15 @@ public class Bank {
     }
 
     // เพิ่มข้อมูลลงใน database (insert account)
-    public void openAccount(Account account) {
+    public void openAccount(Account account) { // (Account account) เป็น polimorlism methof สามารถรับ object ได้หลายประเภท
         Connection con = BankConnection.connect();
-        String sql = "insert into account(accID, accName, accBalance)" + "values(?,?,?)";
+        String sql = "insert into account(accID, accName, accBalance, accType)" + "values(?,?,?,?)";
         try {
             PreparedStatement preparedStatement = con.prepareStatement(sql);
-            preparedStatement.setInt(1, account.getNumber());
-            preparedStatement.setString(2, account.getName());
+            preparedStatement.setInt(1, account.getAccountNumber());
+            preparedStatement.setString(2, account.getAccountName());
             preparedStatement.setDouble(3, account.getBalance());
+            preparedStatement.setString(4, account.getAccountType());
             preparedStatement.executeUpdate();
 
         } catch (SQLException ex) {
@@ -47,12 +54,13 @@ public class Bank {
     }
 
     // ลบข้อมูลใน database (delete account)
-    public void closeAccount(int number) {
+    public void closeAccount(Account account) {
         Connection con = BankConnection.connect();
-        String sql = "delete from account where accID = ?"; // ลบเฉพาะ account ที่เราต้องการ
+        String sql = "delete from account where accID = ? and accType = ?"; // ลบเฉพาะ account ที่เราต้องการ
         try {
             PreparedStatement preparedStatement = con.prepareStatement(sql);
-            preparedStatement.setInt(1, number);
+            preparedStatement.setInt(1, account.getAccountNumber());
+            preparedStatement.setString(2, account.getAccountType());
             preparedStatement.executeUpdate();
 
         } catch (SQLException ex) {
@@ -69,7 +77,7 @@ public class Bank {
         try {
             PreparedStatement preparedStatement = con.prepareStatement(sql);
             preparedStatement.setDouble(1, account.getBalance());
-            preparedStatement.setInt(2, account.getNumber());
+            preparedStatement.setInt(2, account.getAccountNumber());
             preparedStatement.executeUpdate();
 
         } catch (SQLException ex) {
@@ -86,7 +94,7 @@ public class Bank {
         try {
             PreparedStatement preparedStatement = con.prepareStatement(sql);
             preparedStatement.setDouble(1, account.getBalance());
-            preparedStatement.setInt(2, account.getNumber());
+            preparedStatement.setInt(2, account.getAccountNumber());
             preparedStatement.executeUpdate();
 
         } catch (SQLException ex) {
@@ -94,24 +102,27 @@ public class Bank {
         }
     }
 
-    public Account getAccount(int number) {
+    public Account getAccount(int accountNumber, String acccountType) {
         Connection con = BankConnection.connect();
         Account account = null;
-        String sql = "select * from account where accID = '" + number + "'";
-        Statement sta;
+        String sql = "select * from account where accID = ? and accType = ?";
 
         try {
-            String accountName = "";
-            double balance = 0;
-            sta = con.createStatement();
-            ResultSet result = sta.executeQuery(sql);
+            PreparedStatement preparedStatement = con.prepareStatement(sql);
+            preparedStatement.setInt(1, accountNumber);
+            preparedStatement.setString(2, acccountType);
+            ResultSet result = preparedStatement.executeQuery();
 
-            while (result.next()) {
-                accountName = result.getString(2);
-                balance = result.getDouble(3);
+            result.next();
+            String accountName = result.getNString(2);
+            double balance = result.getDouble(3);
+            String accountType = result.getNString(4);
+
+            if (accountType.equals("SavingsAccount")) {
+                account = new SavingsAccount(accountNumber, accountName, balance);
+            } else if (accountType.equals("CurrentAccount")) {
+                account = new CurrentAccount(accountNumber, accountName, balance);
             }
-
-            account = new Account(number, accountName, balance);
 
         } catch (SQLException ex) {
             Logger.getLogger(BankConnection.class.getName()).log(Level.SEVERE, null, ex);
